@@ -19,16 +19,13 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/setup-node@v1
+    - uses: actions/setup-node@v2
       with:
-        node-version: 14.x
+        node-version: 15.x
     - uses: bahmutov/npm-install@v1
     - name: Run E2E tests
       run: |
         cp .env.example .env
-        npm run build
-        npm run typeorm migration:run
-        npm run fixtures
         npm run test:e2e
       env:
         CI: 'true'
@@ -56,9 +53,9 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/setup-node@v1
+    - uses: actions/setup-node@v2
       with:
-        node-version: 14.x
+        node-version: 15.x
     - uses: bahmutov/npm-install@v1
     - name: Prepare the database
       run: |
