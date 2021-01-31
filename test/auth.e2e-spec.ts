@@ -1,10 +1,13 @@
 import { build, fake } from '@jackfranklin/test-data-bot';
 import { HttpStatus, INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import * as faker from 'faker';
 import * as supertest from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { setup } from '../src/setup';
+import type { User } from '../src/user/user.entity';
+import { execute, userFixture } from './fixtures';
 
 const userBuilder = build({
   fields: {
@@ -17,8 +20,9 @@ const userBuilder = build({
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
   let request: supertest.SuperTest<supertest.Test>;
+  let user: User;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -27,32 +31,24 @@ describe('AuthController (e2e)', () => {
 
     await app.init();
 
+    user = (await execute(userFixture('john'))).john;
     request = supertest(app.getHttpServer());
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await app.close();
   });
 
   it.each([
     ['/auth/register', userBuilder(), HttpStatus.CREATED],
     [
-      '/auth/login',
-      {
-        email: 'john@doe.me',
-        password: 'Pa$$w0rd',
-      },
-      HttpStatus.OK,
-    ],
-    [
       '/auth/register',
       { name: null, email: null, password: null },
       HttpStatus.UNPROCESSABLE_ENTITY,
     ],
-    ['/auth/login', { email: '', password: '' }, HttpStatus.UNAUTHORIZED],
     [
       '/auth/login',
-      { email: 'john@doe.me', password: '' },
+      { email: faker.internet.email(), password: faker.internet.password() },
       HttpStatus.UNAUTHORIZED,
     ],
   ])(
@@ -66,13 +62,33 @@ describe('AuthController (e2e)', () => {
     },
   );
 
+  it('should login the user', async () => {
+    const resp = await request
+      .post('/auth/login')
+      .send({ email: user.email, password: 'Pa$$w0rd' })
+      .expect('Authorization', /Bearer\s+.*/)
+      .expect(HttpStatus.OK);
+
+    expect(resp.body).toBeDefined();
+    expect(resp.body.password).toBeUndefined();
+  });
+
+  it('should fail to login with incorrect password', async () => {
+    const resp = await request
+      .post('/auth/login')
+      .send({ email: user.email, password: faker.internet.password() })
+      .expect(HttpStatus.UNAUTHORIZED);
+
+    expect(resp.body).toBeDefined();
+  });
+
   it('should get session user', async () => {
     const {
       header: { authorization },
     } = await request
       .post('/auth/login')
       .send({
-        email: 'john@doe.me',
+        email: user.email,
         password: 'Pa$$w0rd',
       })
       .expect(HttpStatus.OK);

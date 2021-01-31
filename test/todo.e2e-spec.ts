@@ -4,7 +4,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as supertest from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { AuthService } from '../src/auth/auth.service';
 import { setup } from '../src/setup';
+import type { Todo } from '../src/todo/todo.entity';
+import { combine, execute, todoFixture, userFixture } from './fixtures';
 
 const createTodoBuilder = build({
   fields: {
@@ -16,8 +19,9 @@ describe('TodoController (e2e)', () => {
   let app: INestApplication;
   let request: supertest.SuperTest<supertest.Test>;
   let token: string;
+  let todos: Todo[];
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -28,15 +32,25 @@ describe('TodoController (e2e)', () => {
 
     request = supertest(app.getHttpServer());
 
-    const {
-      header: { authorization },
-    } = await supertest(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: 'john@doe.me', password: 'Pa$$w0rd' });
-    [, token] = authorization.split(/\s+/);
+    const { jane, janesTodos } = await execute(
+      combine()
+        .and(userFixture('jane'))
+        .and(({ jane }) =>
+          todoFixture('janesTodos', {
+            list: 10,
+            args: {
+              owner: jane,
+            },
+          }),
+        )
+        .toFixture(),
+    );
+
+    token = app.get(AuthService).signToken(jane);
+    todos = janesTodos;
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await app.close();
   });
 
@@ -109,7 +123,7 @@ describe('TodoController (e2e)', () => {
 
   it('should get one todo that belong to user', async () => {
     const resp = await request
-      .get('/todo/1')
+      .get(`/todo/${todos[0].id}`)
       .set('Authorization', `Bearer ${token}`)
       .expect(HttpStatus.OK)
       .expect('Content-Type', /json/);
@@ -120,7 +134,7 @@ describe('TodoController (e2e)', () => {
 
   it('should update one todo that belong to user', async () => {
     const resp = await request
-      .put('/todo/1')
+      .put(`/todo/${todos[0].id}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ done: true })
       .expect(HttpStatus.OK);
@@ -143,7 +157,7 @@ describe('TodoController (e2e)', () => {
 
   it('should mark one todo as done', async () => {
     const resp = await request
-      .patch('/todo/1/done')
+      .patch(`/todo/${todos[0].id}/done`)
       .set('Authorization', `Bearer ${token}`)
       .expect(HttpStatus.OK);
 
@@ -152,7 +166,7 @@ describe('TodoController (e2e)', () => {
 
   it('should mark one todo as pending', async () => {
     const resp = await request
-      .patch('/todo/1/pending')
+      .patch(`/todo/${todos[0].id}/pending`)
       .set('Authorization', `Bearer ${token}`)
       .expect(HttpStatus.OK);
 

@@ -4,7 +4,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as supertest from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { AuthService } from '../src/auth/auth.service';
 import { setup } from '../src/setup';
+import { execute, profileFixture, userFixture } from './fixtures';
 
 const updateBuilder = build({
   fields: {
@@ -15,10 +17,10 @@ const updateBuilder = build({
 describe('ProfileController (e2e)', () => {
   let app: INestApplication;
   let request: supertest.SuperTest<supertest.Test>;
-  let token;
-  let userId;
+  let token: string;
+  let userId: number;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -28,17 +30,14 @@ describe('ProfileController (e2e)', () => {
 
     request = supertest(app.getHttpServer());
 
-    const {
-      header: { authorization },
-      body: { id },
-    } = await supertest(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: 'john@doe.me', password: 'Pa$$w0rd' });
-    [, token] = authorization.split(/\s+/);
-    userId = id;
+    const { profile } = await execute(
+      profileFixture('profile', { args: { user: userFixture.asArg() } }),
+    );
+    token = app.get(AuthService).signToken(profile.user);
+    userId = profile.user.id;
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await app.close();
   });
 
