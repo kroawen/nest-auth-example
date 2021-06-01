@@ -1,6 +1,12 @@
 module.exports = {
-  type: 'postgres',
-  url: process.env.DATABASE_URL,
+  name: 'default',
+  type: 'mysql',
+  host: '127.0.0.1',
+  port: 3306,
+  username: 'root',
+  synchronize: true,
+  password: 'LRB@dmin999',
+  database: 'auth_test',
   entities: [
     process.env.NODE_ENV === 'test'
       ? 'src/**/*.entity.ts'
@@ -10,7 +16,7 @@ module.exports = {
   cli: {
     migrationsDir: 'src/migrations',
   },
-  synchronize: false,
+  synchronize: true,
   extra: {
     ssl:
       process.env.SSL_MODE === 'require'
